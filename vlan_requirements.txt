@@ -1,0 +1,30 @@
+VLAN Requirements for Honeypot DMZ
+====================================
+
+Purpose: Isolate the internet-exposed honeypot from the AI lab network.
+Contact: [your name/email]
+
+1. VLAN Setup
+   - Create a dedicated VLAN (e.g., VLAN 100) on the lab switch
+   - Assign one switch port to this VLAN for the honeypot host NIC
+
+2. Firewall / Router Rules
+   ALLOW:  Internet       → VLAN 100, TCP port 22  (inbound SSH to honeypot)
+   ALLOW:  VLAN 100       → Internet, TCP port 443 (outbound HTTPS for alerts + blocklist updates)
+   ALLOW:  VLAN 100       → Internet, TCP/UDP port 53 (DNS resolution)
+   DENY:   VLAN 100       → Lab LAN (all other VLANs)
+   DENY:   Lab LAN        → VLAN 100 (except management, see below)
+
+3. NAT Rule
+   External port 22 → VLAN 100 honeypot host:2222
+
+4. Optional: Management Access
+   If SSH management of the honeypot host is needed from the lab:
+   ALLOW:  Lab management VLAN → VLAN 100, TCP port [management SSH port, e.g., 22222]
+   (Use a different port than 2222 to avoid conflict with honeypot)
+
+5. Host Details
+   - OS: Linux (Docker + iptables)
+   - Services: Docker Compose stack (honeypot containers)
+   - Expected bandwidth: Low (SSH text sessions)
+   - Expected connections: Variable, 10-1000+/day depending on scanner activity

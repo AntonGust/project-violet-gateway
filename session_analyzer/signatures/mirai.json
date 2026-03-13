@@ -1,0 +1,13 @@
+{
+  "label": "mirai",
+  "patterns": [
+    ["cat /proc/mounts", "/bin/busybox", "echo -e"],
+    ["wget", "chmod 777", "/tmp/"],
+    ["cd /tmp", "tftp", "chmod"],
+    ["/bin/busybox", "cat /bin/echo"],
+    ["cat /proc/cpuinfo", "wget", "chmod +x"],
+    ["/bin/busybox", "ECCHI", "MIRAI"],
+    ["cd /tmp", "wget", "curl", "chmod"],
+    ["/bin/busybox", "cp /bin/echo", "cat /proc/mounts"]
+  ]
+}

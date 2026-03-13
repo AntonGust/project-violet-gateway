@@ -1,0 +1,211 @@
+services:
+
+  # === FILTER GATEWAY ===
+  filter_gateway:
+    build: ./filter_gateway
+    restart: always
+    ports:
+      - "2222:2222"
+    networks:
+      honeypot_external:
+        ipv4_address: 172.20.99.2
+      net_entry:
+        ipv4_address: 172.20.0.2
+    volumes:
+      - filter_data:/data
+    environment:
+      - COWRIE_HOP1_HOST=172.20.0.10
+      - COWRIE_HOP1_PORT=2222
+      - MAX_CONN_RATE=${MAX_CONN_RATE:-10}
+      - MAX_CONCURRENT=${MAX_CONCURRENT:-3}
+      - SILENT_DROP_TIMEOUT=${SILENT_DROP_TIMEOUT:-30}
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # === SESSION ANALYZER ===
+  session_analyzer:
+    build: ./session_analyzer
+    restart: always
+    networks:
+      net_entry:
+        ipv4_address: 172.20.0.5
+    volumes:
+      - filter_data:/data
+      - cowrie_hop1_var:/cowrie_logs/hop1:ro
+      - cowrie_hop2_var:/cowrie_logs/hop2:ro
+      - cowrie_hop3_var:/cowrie_logs/hop3:ro
+    environment:
+      - LEARN_THRESHOLD=${LEARN_THRESHOLD:-5}
+      - BRUTE_FORCE_THRESHOLD=${BRUTE_FORCE_THRESHOLD:-20}
+      - RAPID_DISCONNECT_SEC=${RAPID_DISCONNECT_SEC:-5}
+      - SPIKE_WINDOW_MIN=${SPIKE_WINDOW_MIN:-10}
+      - SPIKE_MULTIPLIER=${SPIKE_MULTIPLIER:-5}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # === BLOCKLIST UPDATER ===
+  blocklist_updater:
+    build: ./blocklist_updater
+    restart: always
+    volumes:
+      - filter_data:/data
+    environment:
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
+      - CONFIDENCE_MINIMUM=${CONFIDENCE_MINIMUM:-90}
+    mem_limit: 128m
+    cpus: 0.25
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # === COWRIE HOP 1 (Entry Point) ===
+  cowrie_hop1:
+    build: ../project-violet/Cowrie/cowrie-src
+    restart: always
+    environment:
+      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_ENABLED=true
+      - HONEYNET_MODE=true
+      - COWRIE_DB_HOST=172.20.0.4
+      - COWRIE_DB_ENGINE=mysql
+      - COWRIE_DB_PORT=3306
+      - COWRIE_DB_ROOT_PASSWORD=H0n3yp0t_R00t!
+      - COWRIE_DB_NAME=wordpress_prod
+      - COWRIE_DB_USER=wp_admin
+      - COWRIE_DB_PASSWORD=Str0ng_But_Le4ked!
+    volumes:
+      - ../project-violet/cowrie_config_hop1/etc:/cowrie/cowrie-git/etc
+      - ../project-violet/cowrie_config_hop1/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../project-violet/cowrie_config_hop1/share:/cowrie/cowrie-git/share/cowrie
+      - cowrie_hop1_var:/cowrie/cowrie-git/var
+    networks:
+      net_entry:
+        ipv4_address: 172.20.0.10
+      net_hop1:
+        ipv4_address: 172.20.1.10
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+  # === COWRIE HOP 2 ===
+  cowrie_hop2:
+    build: ../project-violet/Cowrie/cowrie-src
+    restart: always
+    environment:
+      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_ENABLED=true
+      - HONEYNET_MODE=true
+      - COWRIE_DB_HOST=172.20.1.22
+      - COWRIE_DB_ENGINE=postgresql
+      - COWRIE_DB_PORT=5432
+      - COWRIE_DB_ROOT_PASSWORD=H0n3yp0t_R00t!
+      - COWRIE_DB_NAME=postgres
+      - COWRIE_DB_USER=postgres
+      - COWRIE_DB_PASSWORD=P0stgr3s_Sup3r_S3cret!
+    volumes:
+      - ../project-violet/cowrie_config_hop2/etc:/cowrie/cowrie-git/etc
+      - ../project-violet/cowrie_config_hop2/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../project-violet/cowrie_config_hop2/share:/cowrie/cowrie-git/share/cowrie
+      - cowrie_hop2_var:/cowrie/cowrie-git/var
+    networks:
+      net_hop1:
+        ipv4_address: 172.20.1.11
+      net_hop2:
+        ipv4_address: 172.20.2.11
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+  # === COWRIE HOP 3 ===
+  cowrie_hop3:
+    build: ../project-violet/Cowrie/cowrie-src
+    restart: always
+    environment:
+      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_ENABLED=true
+      - HONEYNET_MODE=true
+      - COWRIE_DB_HOST=
+      - COWRIE_DB_ENGINE=
+      - COWRIE_DB_PORT=
+      - COWRIE_DB_NAME=
+      - COWRIE_DB_USER=
+      - COWRIE_DB_PASSWORD=
+      - COWRIE_DB_ROOT_PASSWORD=
+    volumes:
+      - ../project-violet/cowrie_config_hop3/etc:/cowrie/cowrie-git/etc
+      - ../project-violet/cowrie_config_hop3/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../project-violet/cowrie_config_hop3/share:/cowrie/cowrie-git/share/cowrie
+      - cowrie_hop3_var:/cowrie/cowrie-git/var
+    networks:
+      net_hop2:
+        ipv4_address: 172.20.2.12
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt:
+      - no-new-privileges:true
+
+  # === DECOY DATABASE ===
+  honeypot_db_hop2:
+    image: postgres:16
+    restart: "no"
+    volumes:
+      - ../project-violet/cowrie_config_hop2/db_init:/docker-entrypoint-initdb.d:ro
+    networks:
+      net_hop1:
+        ipv4_address: 172.20.1.22
+    environment:
+      POSTGRES_PASSWORD: H0n3yp0t_R00t!
+      POSTGRES_DB: app_production
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    mem_limit: 256m
+    cpus: 0.5
+
+networks:
+  honeypot_external:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.99.0/24
+  net_entry:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+  net_hop1:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+  net_hop2:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+
+volumes:
+  filter_data:
+  cowrie_hop1_var:
+  cowrie_hop2_var:
+  cowrie_hop3_var:
