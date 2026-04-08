@@ -12,7 +12,7 @@ services:
       net_entry:
         ipv4_address: 172.20.0.2
     volumes:
-      - filter_data:/data
+      - ${LOG_DIR:-./data}/filter:/data
     environment:
       - COWRIE_HOP1_HOST=172.20.0.10
       - COWRIE_HOP1_PORT=2222
@@ -35,10 +35,10 @@ services:
       net_entry:
         ipv4_address: 172.20.0.5
     volumes:
-      - filter_data:/data
-      - cowrie_hop1_var:/cowrie_logs/hop1:ro
-      - cowrie_hop2_var:/cowrie_logs/hop2:ro
-      - cowrie_hop3_var:/cowrie_logs/hop3:ro
+      - ${LOG_DIR:-./data}/filter:/data
+      - ${LOG_DIR:-./data}/cowrie_hop1:/cowrie_logs/hop1:ro
+      - ${LOG_DIR:-./data}/cowrie_hop2:/cowrie_logs/hop2:ro
+      - ${LOG_DIR:-./data}/cowrie_hop3:/cowrie_logs/hop3:ro
     environment:
       - LEARN_THRESHOLD=${LEARN_THRESHOLD:-5}
       - BRUTE_FORCE_THRESHOLD=${BRUTE_FORCE_THRESHOLD:-20}
@@ -59,7 +59,7 @@ services:
     build: ./blocklist_updater
     restart: always
     volumes:
-      - filter_data:/data
+      - ${LOG_DIR:-./data}/filter:/data
     environment:
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
       - CONFIDENCE_MINIMUM=${CONFIDENCE_MINIMUM:-90}
@@ -71,13 +71,43 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # === LLM PROXY ===
+  # Reverse proxy that isolates the API key from honeypot containers.
+  # Cowrie containers talk to this over net_llm (internal).
+  # Only this container can reach the LLM backend (cloud API or host-local model).
+  llm_proxy:
+    build: ./llm_proxy
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      honeypot_external:
+        ipv4_address: 172.20.99.10
+      net_llm:
+        ipv4_address: 172.20.10.2
+    environment:
+      - LLM_BACKEND=${LLM_BACKEND:-https://api.openai.com}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+    mem_limit: 64m
+    cpus: 0.25
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /run
+    security_opt:
+      - no-new-privileges:true
+
   # === COWRIE HOP 1 (Entry Point) ===
   cowrie_hop1:
-    build: ../project-violet/Cowrie/cowrie-src
+    build: ../Project-Violet-2.0/Cowrie/cowrie-src
     restart: always
     environment:
-      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
+      - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
+      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=172.20.0.4
       - COWRIE_DB_ENGINE=mysql
@@ -87,15 +117,16 @@ services:
       - COWRIE_DB_USER=wp_admin
       - COWRIE_DB_PASSWORD=Str0ng_But_Le4ked!
     volumes:
-      - ../project-violet/cowrie_config_hop1/etc:/cowrie/cowrie-git/etc
-      - ../project-violet/cowrie_config_hop1/honeyfs:/cowrie/cowrie-git/honeyfs
-      - ../project-violet/cowrie_config_hop1/share:/cowrie/cowrie-git/share/cowrie
-      - cowrie_hop1_var:/cowrie/cowrie-git/var
+      - ../Project-Violet-2.0/cowrie_config_hop1/etc:/cowrie/cowrie-git/etc
+      - ../Project-Violet-2.0/cowrie_config_hop1/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../Project-Violet-2.0/cowrie_config_hop1/share:/cowrie/cowrie-git/share/cowrie
+      - ${LOG_DIR:-./data}/cowrie_hop1:/cowrie/cowrie-git/var
     networks:
       net_entry:
         ipv4_address: 172.20.0.10
       net_hop1:
         ipv4_address: 172.20.1.10
+      net_llm:
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -103,11 +134,14 @@ services:
 
   # === COWRIE HOP 2 ===
   cowrie_hop2:
-    build: ../project-violet/Cowrie/cowrie-src
+    build: ../Project-Violet-2.0/Cowrie/cowrie-src
     restart: always
     environment:
-      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
+      - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
+      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=172.20.1.22
       - COWRIE_DB_ENGINE=postgresql
@@ -117,15 +151,16 @@ services:
       - COWRIE_DB_USER=postgres
       - COWRIE_DB_PASSWORD=P0stgr3s_Sup3r_S3cret!
     volumes:
-      - ../project-violet/cowrie_config_hop2/etc:/cowrie/cowrie-git/etc
-      - ../project-violet/cowrie_config_hop2/honeyfs:/cowrie/cowrie-git/honeyfs
-      - ../project-violet/cowrie_config_hop2/share:/cowrie/cowrie-git/share/cowrie
-      - cowrie_hop2_var:/cowrie/cowrie-git/var
+      - ../Project-Violet-2.0/cowrie_config_hop2/etc:/cowrie/cowrie-git/etc
+      - ../Project-Violet-2.0/cowrie_config_hop2/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../Project-Violet-2.0/cowrie_config_hop2/share:/cowrie/cowrie-git/share/cowrie
+      - ${LOG_DIR:-./data}/cowrie_hop2:/cowrie/cowrie-git/var
     networks:
       net_hop1:
         ipv4_address: 172.20.1.11
       net_hop2:
         ipv4_address: 172.20.2.11
+      net_llm:
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -133,11 +168,14 @@ services:
 
   # === COWRIE HOP 3 ===
   cowrie_hop3:
-    build: ../project-violet/Cowrie/cowrie-src
+    build: ../Project-Violet-2.0/Cowrie/cowrie-src
     restart: always
     environment:
-      - COWRIE_HYBRID_LLM_API_KEY=${OPENAI_API_KEY}
+      - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
+      - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
+      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=
       - COWRIE_DB_ENGINE=
@@ -147,13 +185,14 @@ services:
       - COWRIE_DB_PASSWORD=
       - COWRIE_DB_ROOT_PASSWORD=
     volumes:
-      - ../project-violet/cowrie_config_hop3/etc:/cowrie/cowrie-git/etc
-      - ../project-violet/cowrie_config_hop3/honeyfs:/cowrie/cowrie-git/honeyfs
-      - ../project-violet/cowrie_config_hop3/share:/cowrie/cowrie-git/share/cowrie
-      - cowrie_hop3_var:/cowrie/cowrie-git/var
+      - ../Project-Violet-2.0/cowrie_config_hop3/etc:/cowrie/cowrie-git/etc
+      - ../Project-Violet-2.0/cowrie_config_hop3/honeyfs:/cowrie/cowrie-git/honeyfs
+      - ../Project-Violet-2.0/cowrie_config_hop3/share:/cowrie/cowrie-git/share/cowrie
+      - ${LOG_DIR:-./data}/cowrie_hop3:/cowrie/cowrie-git/var
     networks:
       net_hop2:
         ipv4_address: 172.20.2.12
+      net_llm:
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -164,7 +203,7 @@ services:
     image: postgres:16
     restart: "no"
     volumes:
-      - ../project-violet/cowrie_config_hop2/db_init:/docker-entrypoint-initdb.d:ro
+      - ../Project-Violet-2.0/cowrie_config_hop2/db_init:/docker-entrypoint-initdb.d:ro
     networks:
       net_hop1:
         ipv4_address: 172.20.1.22
@@ -203,9 +242,11 @@ networks:
     ipam:
       config:
         - subnet: 172.20.2.0/24
+  net_llm:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.10.0/24
 
-volumes:
-  filter_data:
-  cowrie_hop1_var:
-  cowrie_hop2_var:
-  cowrie_hop3_var:
+volumes: {}

@@ -14,6 +14,7 @@ DOCKER_HONEYPOT_SUBNETS=(
     "172.20.0.0/24"   # net_entry
     "172.20.1.0/24"   # net_hop1
     "172.20.2.0/24"   # net_hop2
+    "172.20.10.0/24"  # net_llm
     "172.20.99.0/24"  # honeypot_external
 )
 

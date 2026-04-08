@@ -1,0 +1,30 @@
+server {
+    listen 8080;
+
+    # Only allow POST to the chat completions endpoint
+    location /v1/chat/completions {
+        if ($request_method != POST) {
+            return 405;
+        }
+
+        proxy_pass ${LLM_BACKEND}/v1/chat/completions;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header Content-Type "application/json";
+        proxy_set_header Authorization "Bearer ${LLM_API_KEY}";
+
+        # Strip any auth header from the client (Cowrie sends its own)
+        proxy_set_header X-Forwarded-For "";
+
+        proxy_connect_timeout 10s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 30s;
+
+        # Limit request body size (prevents abuse if container is compromised)
+        client_max_body_size 64k;
+    }
+
+    # Reject everything else
+    location / {
+        return 404;
+    }
+}
