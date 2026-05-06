@@ -21,7 +21,8 @@ if [ ! -S /tmp/filter.sock ]; then
 fi
 
 echo "[entrypoint] Starting HAProxy..."
-haproxy -f /usr/local/etc/haproxy/haproxy.cfg &
+envsubst < /usr/local/etc/haproxy/haproxy.cfg > /tmp/haproxy.cfg
+haproxy -f /tmp/haproxy.cfg &
 HAPROXY_PID=$!
 
 # Trap signals and forward to both processes

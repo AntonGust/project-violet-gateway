@@ -3,7 +3,7 @@ FROM haproxy:2.9-alpine@sha256:3e29449a6beed63262e36104adf531b4e41b359f61937303f
 USER root
 
 # Install Python for the sidecar + Lua socket for HAProxy
-RUN apk add --no-cache python3 py3-pip lua5.3 lua5.3-socket bash
+RUN apk add --no-cache python3 py3-pip lua5.3 lua5.3-socket bash gettext
 
 # Dedicated non-root user shared by HAProxy and the sidecar.
 # Both processes run as this user so the 0o600 Unix socket is accessible to both.

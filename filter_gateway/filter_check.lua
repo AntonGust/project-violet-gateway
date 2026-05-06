@@ -1,47 +1,40 @@
 -- filter_check.lua
--- HAProxy Lua hook: checks source IP against Python sidecar filter
--- Communicates via Unix socket at /tmp/filter.sock
+-- HAProxy Lua hook: checks source IP against blocklist and bans files.
+-- Uses file I/O (no socket/yield) so it runs safely in tcp-request content context.
 
-local SOCKET_PATH = "/tmp/filter.sock"
-local TIMEOUT_MS = 200  -- 200ms timeout for sidecar response
+local BLOCKLIST_PATH = "/data/blocklist.txt"
+local BANS_PATH      = "/data/bans.txt"
+local REFRESH_SEC    = 10  -- reload files at most every 10 seconds
+
+local blocked = {}
+local last_load = 0
+
+local function load_file(path, tbl)
+    local f = io.open(path, "r")
+    if not f then return end
+    for line in f:lines() do
+        line = line:match("^%s*(.-)%s*$")
+        if line ~= "" and not line:match("^#") then
+            tbl[line] = true
+        end
+    end
+    f:close()
+end
+
+local function maybe_reload()
+    local now = os.time()
+    if now - last_load < REFRESH_SEC then return end
+    last_load = now
+    blocked = {}
+    load_file(BLOCKLIST_PATH, blocked)
+    load_file(BANS_PATH, blocked)
+end
 
 function check_filter(txn)
+    maybe_reload()
     local src_ip = txn.f:src()
-
-    -- Default to ACCEPT if sidecar is unreachable
-    local decision = "ACCEPT"
-
-    local sock = core.tcp()
-    sock:settimeout(TIMEOUT_MS / 1000)
-
-    local ok, err = pcall(function()
-        -- Connect to Unix socket
-        if sock:connect(SOCKET_PATH) == nil then
-            core.Warning("filter_check: cannot connect to sidecar socket")
-            return
-        end
-
-        -- Send IP and newline
-        sock:send(src_ip .. "\n")
-
-        -- Read response
-        local response = sock:receive("*l")
-        if response then
-            response = response:match("^%s*(.-)%s*$")  -- trim whitespace
-            if response == "DROP" or response == "ACCEPT" then
-                decision = response
-            end
-        end
-
-        sock:close()
-    end)
-
-    if not ok then
-        core.Warning("filter_check: error communicating with sidecar: " .. tostring(err))
-    end
-
+    local decision = blocked[src_ip] and "DROP" or "ACCEPT"
     txn:set_var("txn.filter_decision", decision)
 end
 
--- Register the Lua action
 core.register_action("check_filter", {"tcp-req"}, check_filter)

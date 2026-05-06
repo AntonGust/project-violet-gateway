@@ -31,6 +31,8 @@ BANS_DB_PATH = DATA_DIR / "bans.db"
 FILTER_LOG_PATH = DATA_DIR / "filter.log"
 
 BLOCKLIST_RELOAD_INTERVAL = 300  # 5 minutes
+BANS_EXPORT_PATH = DATA_DIR / "bans.txt"
+BANS_EXPORT_INTERVAL = 10  # seconds
 
 
 class BlocklistStore:
@@ -180,6 +182,10 @@ class FilterServer:
         # Load blocklist on startup
         self.blocklist.reload()
 
+        # Start ban file exporter
+        exporter = threading.Thread(target=self.export_bans_loop, daemon=True)
+        exporter.start()
+
         # Clean up stale socket
         if os.path.exists(SOCKET_PATH):
             os.unlink(SOCKET_PATH)
@@ -206,6 +212,23 @@ class FilterServer:
         sock.close()
         self.filter_log.close()
         log.info("Filter sidecar stopped")
+
+    def export_bans_loop(self):
+        """Periodically write active ban IPs to bans.txt for Lua to read."""
+        while self._running:
+            try:
+                conn = sqlite3.connect(str(BANS_DB_PATH), timeout=5)
+                now = datetime.now(timezone.utc).isoformat()
+                rows = conn.execute(
+                    "SELECT ip FROM bans WHERE ban_until > ?", (now,)
+                ).fetchall()
+                conn.close()
+                tmp = BANS_EXPORT_PATH.with_suffix(".tmp")
+                tmp.write_text("\n".join(r[0] for r in rows) + "\n" if rows else "")
+                tmp.replace(BANS_EXPORT_PATH)
+            except Exception:
+                log.exception("Failed to export bans to file")
+            time.sleep(BANS_EXPORT_INTERVAL)
 
     def stop(self):
         self._running = False
