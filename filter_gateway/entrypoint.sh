@@ -14,6 +14,12 @@ for i in $(seq 1 10); do
     sleep 0.5
 done
 
+if [ ! -S /tmp/filter.sock ]; then
+    echo "[entrypoint] ERROR: filter sidecar did not create socket — aborting to avoid unfiltered exposure"
+    kill "$SIDECAR_PID" 2>/dev/null || true
+    exit 1
+fi
+
 echo "[entrypoint] Starting HAProxy..."
 haproxy -f /usr/local/etc/haproxy/haproxy.cfg &
 HAPROXY_PID=$!

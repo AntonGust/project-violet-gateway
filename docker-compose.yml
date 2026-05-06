@@ -5,7 +5,7 @@ services:
     build: ./filter_gateway
     restart: always
     ports:
-      - "2222:2222"
+      - "22:2222"
     networks:
       honeypot_external:
         ipv4_address: 172.20.99.2
@@ -48,7 +48,7 @@ services:
       - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
     mem_limit: 256m
     cpus: 0.5
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp
     security_opt:
@@ -58,6 +58,9 @@ services:
   blocklist_updater:
     build: ./blocklist_updater
     restart: always
+    networks:
+      honeypot_external:
+        ipv4_address: 172.20.99.11
     volumes:
       - ${LOG_DIR:-./data}/filter:/data
     environment:
@@ -65,9 +68,10 @@ services:
       - CONFIDENCE_MINIMUM=${CONFIDENCE_MINIMUM:-90}
     mem_limit: 128m
     cpus: 0.25
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp
+      - /var/run
     security_opt:
       - no-new-privileges:true
 
@@ -90,11 +94,12 @@ services:
       - LLM_API_KEY=${LLM_API_KEY:-}
     mem_limit: 64m
     cpus: 0.25
-    read_only: true
+    read_only: false
     tmpfs:
       - /tmp
       - /var/cache/nginx
       - /run
+      - /etc/nginx/conf.d
     security_opt:
       - no-new-privileges:true
 
@@ -112,10 +117,10 @@ services:
       - COWRIE_DB_HOST=172.20.0.4
       - COWRIE_DB_ENGINE=mysql
       - COWRIE_DB_PORT=3306
-      - COWRIE_DB_ROOT_PASSWORD=H0n3yp0t_R00t!
+      - COWRIE_DB_ROOT_PASSWORD=${COWRIE_DB_ROOT_PASSWORD_HOP1}
       - COWRIE_DB_NAME=wordpress_prod
       - COWRIE_DB_USER=wp_admin
-      - COWRIE_DB_PASSWORD=Str0ng_But_Le4ked!
+      - COWRIE_DB_PASSWORD=${COWRIE_DB_PASSWORD_HOP1}
     volumes:
       - ../Project-Violet-2.0/cowrie_config_hop1/etc:/cowrie/cowrie-git/etc
       - ../Project-Violet-2.0/cowrie_config_hop1/honeyfs:/cowrie/cowrie-git/honeyfs
@@ -146,10 +151,10 @@ services:
       - COWRIE_DB_HOST=172.20.1.22
       - COWRIE_DB_ENGINE=postgresql
       - COWRIE_DB_PORT=5432
-      - COWRIE_DB_ROOT_PASSWORD=H0n3yp0t_R00t!
+      - COWRIE_DB_ROOT_PASSWORD=${COWRIE_DB_ROOT_PASSWORD_HOP2}
       - COWRIE_DB_NAME=postgres
       - COWRIE_DB_USER=postgres
-      - COWRIE_DB_PASSWORD=P0stgr3s_Sup3r_S3cret!
+      - COWRIE_DB_PASSWORD=${COWRIE_DB_PASSWORD_HOP2}
     volumes:
       - ../Project-Violet-2.0/cowrie_config_hop2/etc:/cowrie/cowrie-git/etc
       - ../Project-Violet-2.0/cowrie_config_hop2/honeyfs:/cowrie/cowrie-git/honeyfs
@@ -208,7 +213,7 @@ services:
       net_hop1:
         ipv4_address: 172.20.1.22
     environment:
-      POSTGRES_PASSWORD: H0n3yp0t_R00t!
+      POSTGRES_PASSWORD: ${HONEYPOT_DB_PASSWORD}
       POSTGRES_DB: app_production
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -217,6 +222,63 @@ services:
       retries: 15
     mem_limit: 256m
     cpus: 0.5
+
+  # === ATTACK THEATER ===
+  # Kiosk display: replays Cowrie SSH sessions live and from archive.
+  # Bind to LAN only; do NOT expose port 8080 to the internet.
+  attack_theater:
+    build: ./attack_theater
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      net_entry:
+        ipv4_address: 172.20.0.6
+    volumes:
+      - ${LOG_DIR:-./data}/cowrie_hop1:/cowrie_logs/hop1:ro
+      - ${LOG_DIR:-./data}/cowrie_hop2:/cowrie_logs/hop2:ro
+      - ${LOG_DIR:-./data}/cowrie_hop3:/cowrie_logs/hop3:ro
+      - ${LOG_DIR:-./data}/theater:/data
+      - ${MMDB_PATH:-./data/GeoLite2-City.mmdb}:/data/GeoLite2-City.mmdb:ro
+    environment:
+      - DB_PATH=/data/theater.db
+      - MMDB_PATH=/data/GeoLite2-City.mmdb
+      - HOST=0.0.0.0
+      - PORT=8080
+      - THEATER_PASSWORD=${THEATER_PASSWORD:-}
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: false
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  # === ANALYSIS AGENT ===
+  # LangGraph pipeline that classifies and summarises interesting sessions.
+  # Reads theater.db, calls the llm_proxy, writes markdown reports to /data/reports.
+  analysis_agent:
+    build: ./analysis_agent
+    restart: always
+    networks:
+      net_llm:
+    volumes:
+      - ${LOG_DIR:-./data}/theater:/theater_data:ro
+      - ${LOG_DIR:-./data}/analysis:/data
+    environment:
+      - THEATER_DB_PATH=/theater_data/theater.db
+      - ANALYSIS_DB_PATH=/data/analysis.db
+      - LLM_BASE_URL=http://172.20.10.2:8080/v1
+      - LLM_API_KEY=proxy-no-key-needed
+      - LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - POLL_INTERVAL_SEC=${ANALYSIS_POLL_INTERVAL_SEC:-300}
+    mem_limit: 256m
+    cpus: 0.5
+    read_only: false
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
 
 networks:
   honeypot_external:

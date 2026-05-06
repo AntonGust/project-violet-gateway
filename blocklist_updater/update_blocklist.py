@@ -3,11 +3,13 @@ Blocklist Updater — Pulls IP blocklist from AbuseIPDB API.
 Writes to /data/blocklist.txt (atomic write).
 """
 
+import ipaddress
 import logging
 import os
 import sys
 import tempfile
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -51,8 +53,15 @@ def fetch_blocklist() -> list[str] | None:
         resp.raise_for_status()
         data = resp.json()
 
-        ips = [entry["ipAddress"] for entry in data.get("data", [])]
-        log.info("Fetched %d IPs from AbuseIPDB", len(ips))
+        raw_ips = [entry["ipAddress"] for entry in data.get("data", [])]
+        ips = []
+        for raw in raw_ips:
+            try:
+                ipaddress.ip_address(raw)
+                ips.append(raw)
+            except ValueError:
+                log.warning("Blocklist: skipping invalid IP from AbuseIPDB: %r", raw)
+        log.info("Fetched %d IPs from AbuseIPDB (%d invalid skipped)", len(ips), len(raw_ips) - len(ips))
         return ips
 
     except requests.exceptions.RequestException:
@@ -84,7 +93,10 @@ def write_blocklist(ips: list[str]):
             pass
 
 
-def main():
+UPDATE_HOUR = int(os.environ.get("UPDATE_HOUR", "3"))  # UTC hour for daily refresh
+
+
+def run_once():
     ts = datetime.now(timezone.utc).isoformat()
     log.info("Blocklist update started at %s", ts)
 
@@ -97,6 +109,33 @@ def main():
         log.warning("Fetch failed, keeping existing blocklist")
 
     log.info("Blocklist update complete")
+
+
+def seconds_until_next_run() -> float:
+    """Seconds until the next UPDATE_HOUR:00 UTC."""
+    now = datetime.now(timezone.utc)
+    next_run = now.replace(hour=UPDATE_HOUR, minute=0, second=0, microsecond=0)
+    if next_run <= now:
+        next_run += timedelta(days=1)
+    return (next_run - now).total_seconds()
+
+
+def loop():
+    """Run immediately on startup, then once daily at UPDATE_HOUR UTC."""
+    log.info("Starting in loop mode (daily update at %02d:00 UTC)", UPDATE_HOUR)
+    run_once()
+    while True:
+        delay = seconds_until_next_run()
+        log.info("Next update in %.0f seconds (at %02d:00 UTC)", delay, UPDATE_HOUR)
+        time.sleep(delay)
+        run_once()
+
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--loop":
+        loop()
+    else:
+        run_once()
 
 
 if __name__ == "__main__":

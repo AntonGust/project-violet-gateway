@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PROJECT VIOLET — Attack Theater</title>
+  <link rel="stylesheet" href="/static/vendor/xterm/xterm.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- HEADER -->
+  <header id="hdr">
+    <span id="hdr-title">PROJECT VIOLET &nbsp;·&nbsp; attack theater</span>
+    <span id="hdr-right">
+      <span id="clock"></span>
+      &nbsp;&nbsp;
+      <span id="attacks-today">— attacks today</span>
+    </span>
+  </header>
+
+  <!-- TITLE CARD (shown when idle) -->
+  <div id="title-card" class="hidden">
+    <div class="tc-inner">
+      <div class="tc-logo">PROJECT VIOLET</div>
+      <div class="tc-sub">WAITING FOR ATTACKERS</div>
+    </div>
+  </div>
+
+  <!-- MAIN DASHBOARD -->
+  <main id="dashboard">
+    <!-- LEFT SIDEBAR -->
+    <aside id="sidebar-left">
+      <div class="sidebar-section">
+        <div class="sidebar-label">ATTACKER</div>
+        <div id="src-ip" class="sidebar-value mono">—</div>
+        <div id="rdns" class="sidebar-value rdns">—</div>
+        <div id="country-flag" class="sidebar-value flag">—</div>
+        <div id="country-name" class="sidebar-value">—</div>
+        <div id="asn-org" class="sidebar-value asn">—</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">SESSION</div>
+        <div id="hop-tag" class="sidebar-value">HOP —</div>
+        <div id="session-duration" class="sidebar-value mono">00:00</div>
+        <div id="session-badge" class="badge badge-idle">IDLE</div>
+      </div>
+      <div class="sidebar-section" id="speed-section">
+        <div class="sidebar-label">PLAYBACK SPEED</div>
+        <div id="speed-controls">
+          <button class="speed-btn active" data-speed="1">1×</button>
+          <button class="speed-btn" data-speed="2">2×</button>
+          <button class="speed-btn" data-speed="5">5×</button>
+          <button class="speed-btn" data-speed="10">10×</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER TERMINAL -->
+    <section id="terminal-wrap">
+      <div id="terminal"></div>
+    </section>
+
+    <!-- RIGHT SIDEBAR -->
+    <aside id="sidebar-right">
+      <div id="map-wrap">
+        <div class="sidebar-label">RECENT ATTACKS</div>
+        <div id="map-container">
+          <div id="map-bg"></div>
+          <div id="map-pins"></div>
+        </div>
+      </div>
+      <div id="top-countries-wrap">
+        <div class="sidebar-label">TOP 5 TODAY</div>
+        <ul id="top-countries"></ul>
+      </div>
+    </aside>
+  </main>
+
+  <!-- FOOTER TICKER -->
+  <footer id="footer">
+    <div id="ticker-inner">
+      <span id="ticker-text"></span>
+    </div>
+  </footer>
+
+  <script src="/static/vendor/xterm/xterm.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

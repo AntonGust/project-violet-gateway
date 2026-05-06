@@ -12,6 +12,13 @@ import requests
 
 log = logging.getLogger("alert_manager")
 
+_SLACK_ESCAPE = str.maketrans({"&": "&amp;", "<": "&lt;", ">": "&gt;"})
+
+
+def _sanitize(s: str) -> str:
+    """Escape attacker-controlled strings before embedding in Slack mrkdwn."""
+    return s.translate(_SLACK_ESCAPE)
+
 
 class AlertManager:
     def __init__(
@@ -85,7 +92,7 @@ class AlertManager:
         ratio: float,
         top_ips: list[tuple[str, int]],
     ):
-        top_str = ", ".join(f"`{ip}` ({c})" for ip, c in top_ips)
+        top_str = ", ".join(f"`{_sanitize(ip)}` ({c})" for ip, c in top_ips)
         text = (
             f"*Connection spike detected*\n"
             f"Current: {current} conns/{self.spike_window_sec // 60}min\n"
@@ -98,7 +105,7 @@ class AlertManager:
     def send_new_pattern_alert(
         self, fingerprint: str, commands: list[str], unique_ips: int
     ):
-        cmds_str = ", ".join(f"`{c}`" for c in commands[:10])
+        cmds_str = ", ".join(f"`{_sanitize(c)}`" for c in commands[:10])
         text = (
             f"*New attack pattern auto-learned*\n"
             f"Fingerprint: `{fingerprint[:16]}...`\n"

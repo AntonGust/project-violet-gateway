@@ -1,0 +1,23 @@
+You are a threat intelligence analyst. Given the session details below, provide enrichment context for a security report.
+
+## Session Context
+- Source IP: {{ src_ip }}
+- Country: {{ country }}
+- ASN / ISP: {{ asn_org }}
+- Attack type: {{ attack_type }}
+- Severity: {{ severity }}
+- TTPs identified: {{ ttps | join(", ") if ttps else "none" }}
+
+{% if commands %}
+## Commands Observed
+{% for cmd in commands[:15] %}
+- {{ cmd }}
+{% endfor %}
+{% endif %}
+
+## Task
+Write 1–2 short paragraphs (plain text, no headers) covering:
+1. Whether this attack pattern is associated with known malware families, campaigns, or botnets (e.g. Mirai, Hajime, Outlaw, TeamTNT). Say "No known association" if you cannot identify one.
+2. Relevant defensive recommendations specific to this attack type and the commands observed.
+
+Be factual. Do not speculate beyond the evidence. If the ASN is a known hosting provider frequently used for attacks, note it briefly.

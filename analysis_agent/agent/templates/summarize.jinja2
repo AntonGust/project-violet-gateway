@@ -1,0 +1,29 @@
+Write a threat intelligence report entry for the following honeypot SSH session. Use plain markdown. Be concise — 2–3 paragraphs maximum.
+
+## Session {{ session_id }}
+
+| Field | Value |
+|---|---|
+| Source IP | {{ src_ip }} |
+| Country | {{ country }} |
+| ASN / ISP | {{ asn_org }} |
+| Hop reached | {{ hop }} |
+| Duration | {{ "%.1f"|format(duration) }}s |
+| Commands | {{ command_count }} |
+| Attack type | {{ attack_type }} |
+| Severity | {{ severity }} |
+| TTPs | {{ ttps | join(", ") if ttps else "—" }} |
+
+{% if commands %}
+### Observed Commands
+{% for cmd in commands[:20] %}
+- `{{ cmd }}`
+{% endfor %}
+{% endif %}
+
+### Threat Enrichment
+{{ threat_context or "(none)" }}
+
+---
+
+Write the summary now. Cover: what the attacker did, what they were likely trying to achieve, and the most important defensive action an operator should take. Reference specific commands where relevant.

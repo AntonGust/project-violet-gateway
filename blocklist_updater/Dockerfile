@@ -1,21 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.11-slim@sha256:6d85378d88a19cd4d76079817532d62232be95757cb45945a99fec8e8084b9c2
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    cron \
-    && rm -rf /var/lib/apt/lists/*
-
+# No cron daemon needed — scheduling is handled inside the Python process.
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY update_blocklist.py /app/
-COPY crontab /etc/cron.d/blocklist-cron
-COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod 0644 /etc/cron.d/blocklist-cron && \
-    crontab /etc/cron.d/blocklist-cron && \
-    chmod +x /entrypoint.sh
+RUN addgroup --system blocklist && adduser --system --ingroup blocklist blocklist && \
+    mkdir -p /data && chown blocklist:blocklist /data
 
-RUN mkdir -p /data
+USER blocklist
 
-ENTRYPOINT ["/entrypoint.sh"]
+CMD ["python", "/app/update_blocklist.py", "--loop"]

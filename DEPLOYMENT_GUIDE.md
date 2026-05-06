@@ -43,6 +43,14 @@ git clone <gateway-repo-url> project-violet-gateway
 
 The names matter — the compose file references `../Project-Violet-2.0/` for Cowrie's build context and config mounts.
 
+**After cloning, purge any runtime data that may have been left in the repo:**
+
+```bash
+rm -rf /opt/honeypot/project-violet-gateway/logs/
+```
+
+The `logs/` directory is in `.gitignore` and is never committed, but a developer copy of the repo may contain Cowrie-generated SSH host keys and attacker log data from prior test runs. These must not be present on a partner deployment — Cowrie generates fresh host keys on first startup.
+
 ---
 
 ## Step 1: Create the `.env` File
@@ -154,19 +162,20 @@ Expected output:
 
 The script is **idempotent** — safe to re-run. It flushes and recreates its own chain each time.
 
-### Persisting Rules Across Reboots
+### Persisting Rules Across Reboots (MANDATORY)
 
-These iptables rules don't survive a reboot. To persist them:
+**These iptables rules do not survive a reboot.** Docker containers with `restart: always` start automatically on boot. Without persistence, there is a window after every reboot where honeypot containers are running with no network isolation.
+
+**Required:** install the provided systemd unit before going live:
 
 ```bash
-# Debian/Ubuntu:
-sudo apt install iptables-persistent
-sudo netfilter-persistent save
-
-# Or add the script to a cron @reboot:
-sudo crontab -e
-# Add: @reboot /opt/honeypot/project-violet-gateway/setup_iptables.sh
+sudo cp /opt/honeypot/project-violet-gateway/honeypot-iptables.service \
+        /etc/systemd/system/honeypot-iptables.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now honeypot-iptables
 ```
+
+This guarantees the isolation chain is in place before Docker starts any container on boot.
 
 ---
 
@@ -416,12 +425,36 @@ OLLAMA_HOST=0.0.0.0 ollama serve
 | `net_hop2` | 172.20.2.0/24 | Internal | cowrie_hop2, cowrie_hop3 |
 | `net_llm` | 172.20.10.0/24 | Internal | llm_proxy, cowrie_hop1/2/3 |
 
+### Host SSH Hardening (MANDATORY for partner sites)
+
+Before the deployment goes live, disable password authentication on the host:
+
+```bash
+# /etc/ssh/sshd_config
+PasswordAuthentication no
+PermitRootLogin no
+AllowUsers honeypot-admin   # replace with your actual admin username
+```
+
+```bash
+sudo systemctl reload sshd
+```
+
+Verify you can still log in with your key before closing the session.
+
+### Filter Gateway: Fail-Open Behavior
+
+If the Python filter sidecar crashes or takes longer than 200 ms to respond, HAProxy defaults to **ACCEPT**. This is intentional — it keeps the honeypot reachable even during sidecar restarts. Consequence: during a sidecar outage, blocklisted and banned IPs are admitted to Cowrie unfiltered.
+
+If you see the filter container restart in `docker compose ps`, check `docker compose logs filter_gateway` to determine how long it was down and whether any blocked IPs connected during that window.
+
 ### Container Hardening
 
 Every container has:
 - `no-new-privileges:true` — prevents privilege escalation
 - `read_only: true` — read-only root filesystem (only `/tmp` writable via `tmpfs`)
 - Memory and CPU limits
+- `filter_gateway` runs as the dedicated `filter` non-root user
 - The session analyzer runs as a non-root user
 
 ### API Key Isolation

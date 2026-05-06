@@ -4,6 +4,7 @@ Listens on a Unix socket for IP check requests from HAProxy Lua.
 Checks: blocklist file → ban database → returns ACCEPT/DROP.
 """
 
+import ipaddress
 import json
 import logging
 import os
@@ -160,6 +161,12 @@ class FilterServer:
             ip = data.decode("utf-8").strip()
             if not ip:
                 return
+            try:
+                ipaddress.ip_address(ip)
+            except ValueError:
+                log.warning("filter_check: invalid IP format: %r", ip)
+                conn.sendall(b"ACCEPT\n")
+                return
 
             decision, reason = self.check_ip(ip)
             conn.sendall((decision + "\n").encode("utf-8"))
@@ -179,7 +186,7 @@ class FilterServer:
 
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         sock.bind(SOCKET_PATH)
-        os.chmod(SOCKET_PATH, 0o777)
+        os.chmod(SOCKET_PATH, 0o600)
         sock.listen(64)
         sock.settimeout(1.0)  # Allow periodic check of _running
 

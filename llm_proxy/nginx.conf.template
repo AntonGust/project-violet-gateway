@@ -1,3 +1,5 @@
+limit_req_zone $binary_remote_addr zone=llm:1m rate=10r/m;
+
 server {
     listen 8080;
 
@@ -6,6 +8,8 @@ server {
         if ($request_method != POST) {
             return 405;
         }
+
+        limit_req zone=llm burst=5 nodelay;
 
         proxy_pass ${LLM_BACKEND}/v1/chat/completions;
         proxy_set_header Host $proxy_host;

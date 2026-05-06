@@ -1,0 +1,13 @@
+[Unit]
+Description=Honeypot iptables isolation rules
+# Must be in place before Docker starts any container.
+Before=docker.service
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/honeypot/project-violet-gateway/setup_iptables.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

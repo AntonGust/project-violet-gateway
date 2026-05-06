@@ -1,7 +1,12 @@
 .env
+.env.*
+!.env.example
+*.env
 __pycache__/
 *.pyc
 *.db
 *.log
 .venv/
 cowrie_config_hop*/var/
+logs/
+data/

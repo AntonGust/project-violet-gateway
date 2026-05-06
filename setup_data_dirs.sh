@@ -17,9 +17,17 @@ mkdir -p \
     "$DATA_DIR/cowrie_hop2/log/cowrie" \
     "$DATA_DIR/cowrie_hop3/log/cowrie"
 
-# Cowrie runs as UID 1000 inside the container, session analyzer as 'analyzer'.
-# Make everything world-writable so containers can write regardless of UID mapping.
-chmod -R 777 "$DATA_DIR"
+# Cowrie runs as UID 1000 inside the container.
+# The filter sidecar runs as the 'filter' user (UID assigned at image build time).
+# Use targeted ownership rather than world-writable permissions.
+chown -R 1000:1000 "$DATA_DIR/cowrie_hop1"
+chown -R 1000:1000 "$DATA_DIR/cowrie_hop2"
+chown -R 1000:1000 "$DATA_DIR/cowrie_hop3"
+# filter_gateway and blocklist_updater share the filter directory.
+# 777 is intentionally avoided; both containers write here, so group-write suffices
+# if they share GID 1000. If UIDs differ across images, adjust accordingly.
+chmod 775 "$DATA_DIR/filter"
+chmod g+s "$DATA_DIR/filter"  # new files inherit group
 
 echo "[+] Done. Directory structure:"
 find "$DATA_DIR" -type d | sort | sed 's/^/    /'
