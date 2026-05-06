@@ -99,7 +99,13 @@ services:
       - /tmp
       - /var/cache/nginx
       - /run
-      - /etc/nginx/conf.d
+    volumes:
+      # World-writable tmpfs so the unprivileged nginx user can land
+      # the envsubst-rendered config from /etc/nginx/templates/.
+      - type: tmpfs
+        target: /etc/nginx/conf.d
+        tmpfs:
+          mode: 01777
     security_opt:
       - no-new-privileges:true
 
@@ -132,6 +138,7 @@ services:
       net_hop1:
         ipv4_address: 172.20.1.10
       net_llm:
+        ipv4_address: 172.20.10.10
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -166,6 +173,7 @@ services:
       net_hop2:
         ipv4_address: 172.20.2.11
       net_llm:
+        ipv4_address: 172.20.10.11
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -198,6 +206,7 @@ services:
       net_hop2:
         ipv4_address: 172.20.2.12
       net_llm:
+        ipv4_address: 172.20.10.12
     mem_limit: 512m
     cpus: 1.0
     security_opt:
@@ -287,6 +296,8 @@ services:
     profiles: [monitoring]
     build: ./analysis_agent
     restart: always
+    depends_on:
+      - llm_proxy
     networks:
       net_llm:
     volumes:

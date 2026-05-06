@@ -29,10 +29,13 @@ async def _run_loop() -> None:
     while True:
         try:
             state = await graph.ainvoke(SessionAnalysisState())
-            if state.done and not state.session_id:
+            # graph.ainvoke returns a dict-like AddableValuesDict, not the dataclass.
+            done = state.get("done") if hasattr(state, "get") else getattr(state, "done", False)
+            session_id = state.get("session_id") if hasattr(state, "get") else getattr(state, "session_id", None)
+            if done and not session_id:
                 log.debug("No new sessions; sleeping %ds", POLL_INTERVAL_SEC)
-            elif state.done:
-                log.info("Analysis complete for session %s", state.session_id)
+            elif done:
+                log.info("Analysis complete for session %s", session_id)
             else:
                 log.warning("Graph exited without setting done=True")
         except Exception:

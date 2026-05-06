@@ -34,6 +34,9 @@ async def ingest_node(state: SessionAnalysisState) -> SessionAnalysisState:
             return _done(state)
 
         async with aiosqlite.connect(str(THEATER_DB)) as tdb:
+            # analyzed_sessions lives in analysis.db; ATTACH so the NOT IN
+            # subquery can reference it without a second round-trip.
+            await tdb.execute(f"ATTACH DATABASE '{ANALYSIS_DB}' AS adb")
             async with tdb.execute(
                 """SELECT t.session_id, t.src_ip, t.country, t.asn_org,
                           t.hop, t.duration, t.command_count, t.tty_file_path,
@@ -41,7 +44,7 @@ async def ingest_node(state: SessionAnalysisState) -> SessionAnalysisState:
                    FROM sessions t
                    WHERE t.is_interesting = 1
                      AND t.session_id NOT IN (
-                         SELECT session_id FROM analyzed_sessions
+                         SELECT session_id FROM adb.analyzed_sessions
                      )
                    ORDER BY t.start_time ASC
                    LIMIT 1"""
