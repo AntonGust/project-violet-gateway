@@ -90,7 +90,7 @@ services:
       net_llm:
         ipv4_address: 172.20.10.2
     environment:
-      - LLM_BACKEND=${LLM_BACKEND:-https://api.openai.com}
+      - LLM_BACKEND=${LLM_BACKEND:-https://llm.aiqu.ai}
       - LLM_API_KEY=${LLM_API_KEY:-}
     mem_limit: 64m
     cpus: 0.25
@@ -111,7 +111,7 @@ services:
       - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
       - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
-      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_MODEL=${HP_MODEL:-gpt-oss-120b}
       - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=172.20.0.4
@@ -145,7 +145,7 @@ services:
       - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
       - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
-      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_MODEL=${HP_MODEL:-gpt-oss-120b}
       - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=172.20.1.22
@@ -179,7 +179,7 @@ services:
       - COWRIE_HYBRID_LLM_API_KEY=proxy-no-key-needed
       - COWRIE_HYBRID_LLM_ENABLED=true
       - COWRIE_HYBRID_LLM_HOST=http://172.20.10.2:8080
-      - COWRIE_HYBRID_LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - COWRIE_HYBRID_LLM_MODEL=${HP_MODEL:-gpt-oss-120b}
       - COWRIE_HYBRID_LLM_PATH=/v1/chat/completions
       - HONEYNET_MODE=true
       - COWRIE_DB_HOST=
@@ -270,7 +270,7 @@ services:
       - ANALYSIS_DB_PATH=/data/analysis.db
       - LLM_BASE_URL=http://172.20.10.2:8080/v1
       - LLM_API_KEY=proxy-no-key-needed
-      - LLM_MODEL=${LLM_MODEL:-gpt-4.1-mini}
+      - LLM_MODEL=${AGENT_MODEL:-nemotron-3-super}
       - POLL_INTERVAL_SEC=${ANALYSIS_POLL_INTERVAL_SEC:-300}
     mem_limit: 256m
     cpus: 0.5
