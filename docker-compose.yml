@@ -45,7 +45,7 @@ services:
       - RAPID_DISCONNECT_SEC=${RAPID_DISCONNECT_SEC:-5}
       - SPIKE_WINDOW_MIN=${SPIKE_WINDOW_MIN:-10}
       - SPIKE_MULTIPLIER=${SPIKE_MULTIPLIER:-5}
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
     mem_limit: 256m
     cpus: 0.5
     read_only: false
@@ -64,7 +64,7 @@ services:
     volumes:
       - ${LOG_DIR:-./data}/filter:/data
     environment:
-      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY:-}
       - CONFIDENCE_MINIMUM=${CONFIDENCE_MINIMUM:-90}
     mem_limit: 128m
     cpus: 0.25
@@ -151,10 +151,10 @@ services:
       - COWRIE_DB_HOST=172.20.1.22
       - COWRIE_DB_ENGINE=postgresql
       - COWRIE_DB_PORT=5432
-      - COWRIE_DB_ROOT_PASSWORD=${COWRIE_DB_ROOT_PASSWORD_HOP2}
+      - COWRIE_DB_ROOT_PASSWORD=${HONEYPOT_DB_PASSWORD}
       - COWRIE_DB_NAME=postgres
       - COWRIE_DB_USER=postgres
-      - COWRIE_DB_PASSWORD=${COWRIE_DB_PASSWORD_HOP2}
+      - COWRIE_DB_PASSWORD=${HONEYPOT_DB_PASSWORD}
     volumes:
       - ../Project-Violet-2.0/cowrie_config_hop2/etc:/cowrie/cowrie-git/etc
       - ../Project-Violet-2.0/cowrie_config_hop2/honeyfs:/cowrie/cowrie-git/honeyfs
@@ -203,7 +203,29 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  # === DECOY DATABASE ===
+  # === DECOY DATABASE HOP 1 (MySQL — wordpress server) ===
+  honeypot_db_hop1:
+    image: mysql:8.0
+    restart: "no"
+    volumes:
+      - ../Project-Violet-2.0/cowrie_config_hop1/db_init:/docker-entrypoint-initdb.d:ro
+    networks:
+      net_entry:
+        ipv4_address: 172.20.0.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${COWRIE_DB_ROOT_PASSWORD_HOP1}
+      MYSQL_DATABASE: wordpress_prod
+      MYSQL_USER: wp_admin
+      MYSQL_PASSWORD: ${COWRIE_DB_PASSWORD_HOP1}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    mem_limit: 256m
+    cpus: 0.5
+
+  # === DECOY DATABASE HOP 2 (Postgres — database server) ===
   honeypot_db_hop2:
     image: postgres:16
     restart: "no"
@@ -226,7 +248,9 @@ services:
   # === ATTACK THEATER ===
   # Kiosk display: replays Cowrie SSH sessions live and from archive.
   # Bind to LAN only; do NOT expose port 8080 to the internet.
+  # Only starts with: docker compose --profile monitoring up
   attack_theater:
+    profiles: [monitoring]
     build: ./attack_theater
     restart: always
     ports:
@@ -239,7 +263,8 @@ services:
       - ${LOG_DIR:-./data}/cowrie_hop2:/cowrie_logs/hop2:ro
       - ${LOG_DIR:-./data}/cowrie_hop3:/cowrie_logs/hop3:ro
       - ${LOG_DIR:-./data}/theater:/data
-      - ${MMDB_PATH:-./data/GeoLite2-City.mmdb}:/data/GeoLite2-City.mmdb:ro
+      # To enable geo lookups: place GeoLite2-City.mmdb in ./data/theater/ (or $LOG_DIR/theater/)
+      # No separate mount needed — /data is already mapped to that directory.
     environment:
       - DB_PATH=/data/theater.db
       - MMDB_PATH=/data/GeoLite2-City.mmdb
@@ -257,7 +282,9 @@ services:
   # === ANALYSIS AGENT ===
   # LangGraph pipeline that classifies and summarises interesting sessions.
   # Reads theater.db, calls the llm_proxy, writes markdown reports to /data/reports.
+  # Only starts with: docker compose --profile monitoring up
   analysis_agent:
+    profiles: [monitoring]
     build: ./analysis_agent
     restart: always
     networks:

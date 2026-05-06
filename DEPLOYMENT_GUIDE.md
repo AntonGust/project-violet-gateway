@@ -63,27 +63,38 @@ nano .env
 
 ### LLM Provider Configuration
 
-The `llm_proxy` container acts as a reverse proxy between Cowrie and your LLM backend. It holds the API key so that Cowrie containers never see it. You configure three variables:
+The `llm_proxy` container acts as a reverse proxy between Cowrie and your LLM backend. It holds the API key so that Cowrie containers never see it. You configure four variables:
 
 | Variable | Purpose |
 |---|---|
 | `LLM_BACKEND` | URL of the actual LLM server the proxy forwards to |
-| `LLM_MODEL` | Model name sent in the API request |
+| `HP_MODEL` | Model used by the Cowrie honeypot instances |
+| `AGENT_MODEL` | Model used by the analysis agent (monitoring profile only) |
 | `LLM_API_KEY` | API key injected by the proxy (leave empty for local models) |
 
 #### Cloud API Examples
 
+**aiqu.ai (default):**
+```env
+LLM_BACKEND=https://llm.aiqu.ai
+HP_MODEL=gpt-oss-120b
+AGENT_MODEL=nemotron-3-super
+LLM_API_KEY=your_aiqu_api_key
+```
+
 **OpenAI:**
 ```env
 LLM_BACKEND=https://api.openai.com
-LLM_MODEL=gpt-4.1-mini
+HP_MODEL=gpt-4.1-mini
+AGENT_MODEL=gpt-4.1-mini
 LLM_API_KEY=sk-proj-...
 ```
 
 **Together AI:**
 ```env
 LLM_BACKEND=https://api.together.xyz
-LLM_MODEL=Qwen/Qwen3.5-397B-A17B
+HP_MODEL=meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
+AGENT_MODEL=meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
 LLM_API_KEY=your_together_api_key
 ```
 
@@ -136,6 +147,8 @@ All three work out of the box. The gateway sends standard OpenAI-format requests
 | `BRUTE_FORCE_THRESHOLD` | 20 | Failed auth attempts before banning |
 | `LEARN_THRESHOLD` | 5 | Unique IPs before auto-learning a pattern |
 | `CONFIDENCE_MINIMUM` | 90 | AbuseIPDB confidence threshold |
+| `ANALYSIS_POLL_INTERVAL_SEC` | 300 | How often the analysis agent checks for new sessions |
+| `MMDB_PATH` | — | Host path to `GeoLite2-City.mmdb` for IP geolocation (monitoring profile) |
 
 ---
 
@@ -200,6 +213,34 @@ LOG_DIR=/opt/honeypot/data
 ```
 
 The default is `./data` (relative to the compose file).
+
+---
+
+## Deployment Modes
+
+The gateway supports two deployment modes controlled by Docker Compose profiles.
+
+### Honeypot Only (default — recommended for remote/partner sites)
+
+Runs the core honeypot stack: filter gateway, Cowrie hops, LLM proxy, session analyzer, and blocklist updater. The attack theater dashboard and analysis agent are **not** started.
+
+```bash
+docker compose up -d --build
+```
+
+This is the right choice for remote deployments where you only want to collect data. Logs are written to `data/` and can be synced or shipped to a central collector.
+
+### Full Stack with Monitoring (local / central site)
+
+Also starts the **attack theater** (live session dashboard) and **analysis agent** (LLM-powered session classifier and report generator).
+
+```bash
+docker compose --profile monitoring up -d --build
+```
+
+The attack theater is available at `http://127.0.0.1:8080` (LAN only — never expose to the internet).
+
+> **GeoIP (optional):** Download `GeoLite2-City.mmdb` from [MaxMind](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) (free account required) and place it in `./data/theater/` (or `$LOG_DIR/theater/`). No extra config needed — the theater picks it up automatically on startup. Without it the theater works fine but IP locations will show as unknown.
 
 ---
 
@@ -291,14 +332,17 @@ Attackers scanning port 22 will hit the honeypot.
 
 ```bash
 # Stop everything (data is preserved on disk)
-docker compose -f docker-compose.internet-honeypot.yml down
+docker compose down
+
+# Stop full stack including monitoring profile
+docker compose --profile monitoring down
 
 # Stop and DELETE all data (fresh start)
-docker compose -f docker-compose.internet-honeypot.yml down
+docker compose down
 rm -rf ./data   # or your LOG_DIR path
 
 # Rebuild just one container after a code change
-docker compose -f docker-compose.internet-honeypot.yml up -d --build session_analyzer
+docker compose up -d --build session_analyzer
 
 # Remove iptables rules (full teardown)
 sudo iptables -D FORWARD -j HONEYPOT_ISOLATION
