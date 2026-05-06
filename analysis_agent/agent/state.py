@@ -15,6 +15,7 @@ class SessionAnalysisState:
     command_count: int = 0
     commands: list[str] = field(default_factory=list)
     tty_file_path: Optional[str] = None
+    start_time: float = 0.0  # unix epoch from theater.sessions.start_time
 
     # Intermediate — set by classify / enrich nodes
     attack_type: str = ""

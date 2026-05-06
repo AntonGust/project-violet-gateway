@@ -25,7 +25,7 @@ async def output_node(state):
         log.warning("Skipping output for %s due to earlier error: %s", session_id, state.error)
         return dataclasses.replace(state, done=True)
 
-    report_path = _report_path(session_id)
+    report_path = _report_path(state)
     report_written = False
     try:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -82,9 +82,19 @@ def _render_report(state) -> str:
 """
 
 
-def _report_path(session_id: str) -> Path:
-    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in session_id)
-    return REPORTS_DIR / f"{safe}.md"
+def _report_path(state) -> Path:
+    """Build a sortable, scannable filename: <ISO-UTC>_<severity>_<session_id>.md.
+
+    Uses the attack's start_time so the filename reflects when the event
+    actually happened, not when analysis ran. Falls back to "now" only if
+    start_time is missing (shouldn't happen in normal flow).
+    """
+    import datetime
+    ts = state.start_time or datetime.datetime.now(datetime.timezone.utc).timestamp()
+    when = datetime.datetime.fromtimestamp(ts, datetime.timezone.utc).strftime("%Y-%m-%dT%H%MZ")
+    severity = (state.severity or "unknown").lower()
+    safe_id = "".join(c if c.isalnum() or c in "-_" else "_" for c in state.session_id)
+    return REPORTS_DIR / f"{when}_{severity}_{safe_id}.md"
 
 
 async def _mark_analyzed(session_id: str) -> None:

@@ -40,7 +40,7 @@ async def ingest_node(state: SessionAnalysisState) -> SessionAnalysisState:
             async with tdb.execute(
                 """SELECT t.session_id, t.src_ip, t.country, t.asn_org,
                           t.hop, t.duration, t.command_count, t.tty_file_path,
-                          t.commands_json
+                          t.commands_json, t.start_time
                    FROM sessions t
                    WHERE t.is_interesting = 1
                      AND t.session_id NOT IN (
@@ -55,7 +55,7 @@ async def ingest_node(state: SessionAnalysisState) -> SessionAnalysisState:
             log.info("No new sessions to analyze")
             return _done(state)
 
-        session_id, src_ip, country, asn_org, hop, duration, command_count, tty_path, commands_json = row
+        session_id, src_ip, country, asn_org, hop, duration, command_count, tty_path, commands_json, start_time = row
         log.info("Ingesting session %s from %s (%s)", session_id, src_ip, country)
 
     import json
@@ -74,6 +74,7 @@ async def ingest_node(state: SessionAnalysisState) -> SessionAnalysisState:
         command_count=command_count or 0,
         tty_file_path=tty_path,
         commands=commands,
+        start_time=float(start_time or 0.0),
     )
 
 
