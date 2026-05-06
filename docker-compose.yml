@@ -262,8 +262,11 @@ services:
     profiles: [monitoring]
     build: ./attack_theater
     restart: always
-    ports:
-      - "127.0.0.1:8080:8080"
+    # No host port published. attack_theater stays on the internal-only
+    # net_entry so it has no path to the internet even if compromised.
+    # Operator access is via SSH local-forward:
+    #   ssh -L 8080:172.20.0.6:8080 user@gateway-host
+    # then open http://localhost:8080 in the browser.
     networks:
       net_entry:
         ipv4_address: 172.20.0.6
