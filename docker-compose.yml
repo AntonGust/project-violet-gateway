@@ -303,6 +303,7 @@ services:
       - llm_proxy
     networks:
       net_llm:
+        ipv4_address: 172.20.10.20
     volumes:
       - ${LOG_DIR:-./data}/theater:/theater_data:ro
       - ${LOG_DIR:-./data}/analysis:/data

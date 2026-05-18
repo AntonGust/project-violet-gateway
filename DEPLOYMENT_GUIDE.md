@@ -28,7 +28,7 @@ The compose file expects two sibling repos:
     ├── session_analyzer/
     ├── blocklist_updater/
     ├── llm_proxy/
-    ├── docker-compose.internet-honeypot.yml
+    ├── docker-compose.yml
     ├── setup_iptables.sh
     └── .env
 ```
@@ -238,7 +238,17 @@ Also starts the **attack theater** (live session dashboard) and **analysis agent
 docker compose --profile monitoring up -d --build
 ```
 
-The attack theater is available at `http://127.0.0.1:8080` (LAN only — never expose to the internet).
+The attack theater has no published host port — it sits on the internal `net_entry` network at `172.20.0.6:8080`. From the Docker host, open it directly:
+
+```bash
+xdg-open http://172.20.0.6:8080/
+```
+
+Login with any username and the `THEATER_PASSWORD` value from `.env`. From a remote machine, reach it via SSH local-forward instead (never expose port 8080 to the internet):
+
+```bash
+ssh -L 8080:172.20.0.6:8080 <user>@<gateway-host>   # then open http://localhost:8080/
+```
 
 > **GeoIP (optional):** Download `GeoLite2-City.mmdb` from [MaxMind](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data) (free account required) and place it in `./data/theater/` (or `$LOG_DIR/theater/`). No extra config needed — the theater picks it up automatically on startup. Without it the theater works fine but IP locations will show as unknown.
 
@@ -248,7 +258,13 @@ The attack theater is available at `http://127.0.0.1:8080` (LAN only — never e
 
 ```bash
 cd /opt/honeypot/project-violet-gateway
-docker compose -f docker-compose.internet-honeypot.yml up -d --build
+docker compose up -d --build
+```
+
+`docker compose` picks up `docker-compose.yml` automatically, so no `-f` flag is needed. For the full stack with the live dashboard, add the monitoring profile (see [Deployment Modes](#deployment-modes)):
+
+```bash
+docker compose --profile monitoring up -d --build
 ```
 
 `--build` forces a fresh image build. On first run it will:
@@ -270,7 +286,7 @@ This takes a few minutes the first time (Cowrie's build is the heaviest).
 
 ```bash
 # Check all containers are up
-docker compose -f docker-compose.internet-honeypot.yml ps
+docker compose ps
 ```
 
 Expected output — 8 containers, all "Up":
@@ -306,10 +322,10 @@ tail -f ./data/cowrie_hop1/log/cowrie/cowrie.json
 tail -f ./data/filter/filter.log
 
 # Session analyzer container logs
-docker compose -f docker-compose.internet-honeypot.yml logs -f session_analyzer
+docker compose logs -f session_analyzer
 
 # LLM proxy logs (check if requests are forwarding)
-docker compose -f docker-compose.internet-honeypot.yml logs llm_proxy
+docker compose logs llm_proxy
 ```
 
 ---
