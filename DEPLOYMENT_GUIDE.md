@@ -105,14 +105,14 @@ For models running on the **same machine** as Docker (reached via `host.docker.i
 **Ollama:**
 ```env
 LLM_BACKEND=http://host.docker.internal:11434
-LLM_MODEL=qwen2.5:32b
+HP_MODEL=qwen2.5:32b
 LLM_API_KEY=
 ```
 
 **vLLM:**
 ```env
 LLM_BACKEND=http://host.docker.internal:8000
-LLM_MODEL=Qwen/Qwen2.5-32B-Instruct
+HP_MODEL=Qwen/Qwen2.5-32B-Instruct
 LLM_API_KEY=
 ```
 
@@ -120,7 +120,7 @@ For models running on a **different machine** on the network (e.g., a GPU server
 
 ```env
 LLM_BACKEND=http://10.0.1.100:8000
-LLM_MODEL=nvidia/Nemotron-Ultra-120B-HF
+HP_MODEL=nvidia/Nemotron-Ultra-120B-HF
 LLM_API_KEY=
 ```
 
@@ -128,7 +128,7 @@ This works because the `llm_proxy` container sits on `honeypot_external` (the on
 
 #### Tested Large Models
 
-| Model | Backend | `LLM_MODEL` value |
+| Model | Backend | `HP_MODEL` value |
 |---|---|---|
 | GPT-OSS-120B | vLLM / Ollama | `openai/GPT-OSS-120B` or `gpt-oss:120b` |
 | Nemotron 120B | vLLM / Ollama | `nvidia/Nemotron-Ultra-120B-HF` or `nemotron:120b` |
@@ -512,10 +512,11 @@ If you see the filter container restart in `docker compose ps`, check `docker co
 
 Every container has:
 - `no-new-privileges:true` — prevents privilege escalation
-- `read_only: true` — read-only root filesystem (only `/tmp` writable via `tmpfs`)
 - Memory and CPU limits
 - `filter_gateway` runs as the dedicated `filter` non-root user
 - The session analyzer runs as a non-root user
+
+Only `filter_gateway` runs with `read_only: true` (read-only root filesystem, with `/tmp` writable via `tmpfs`). The remaining services (`session_analyzer`, `blocklist_updater`, `llm_proxy`, `attack_theater`, `analysis_agent`) run with a writable root filesystem and `tmpfs` scratch mounts; the Cowrie hops and the two decoy databases use the default writable root.
 
 ### API Key Isolation
 
